@@ -51,6 +51,9 @@ pub enum Token<'source> {
 
 	#[regex(r"[\p{XID_Start}_]\p{XID_Continue}*", |lexer| lexer.slice().to_string())]
 	Identifier(String),
+	// TODO: I don't think CORAL will support diamond syntax. Check back later.
+	#[regex(r"[a-zA-Z0-9_]+(::[a-zA-Z0-9_]+)+", |lexer| lexer.slice().to_string())]
+	Path(String),
 
 	#[regex(r"0x[0-9a-fA-F]+", |lexer| u128::from_str_radix(&lexer.slice()[2..], 16))]
 	#[regex(r"[0-9]+", |lexer| lexer.slice().parse::<u128>())]
@@ -83,10 +86,7 @@ pub enum Token<'source> {
 	Whitespace,
 }
 
-pub(self) fn extract_nested<'source>(
-	lexer: &mut logos::Lexer<'source, Token<'source>>,
-	chars: (char, char),
-) -> Option<&'source str> {
+pub(self) fn extract_nested<'source>(lexer: &mut logos::Lexer<'source, Token<'source>>, chars: (char, char)) -> Option<&'source str> {
 	let remainder = lexer.remainder();
 	let mut depth = 1;
 	let mut end_index = 0;
@@ -138,8 +138,7 @@ pub(self) fn unescape_string(input: &str) -> Result<String, String> {
 							if h.is_ascii_hexdigit() {
 								hex.push(chars.next().unwrap());
 							} else {
-								return Err("Invalid hex escape sequence: expected 2 hex digits"
-									.to_string());
+								return Err("Invalid hex escape sequence: expected 2 hex digits".to_string());
 							};
 						};
 					}
@@ -148,8 +147,7 @@ pub(self) fn unescape_string(input: &str) -> Result<String, String> {
 						return Err("Invalid hex escape sequence: truncated".to_string());
 					};
 
-					let byte =
-						u8::from_str_radix(&hex, 16).map_err(|_| "Failed to parse hex escape")?;
+					let byte = u8::from_str_radix(&hex, 16).map_err(|_| "Failed to parse hex escape")?;
 
 					result.push(byte as char);
 				},
@@ -157,9 +155,7 @@ pub(self) fn unescape_string(input: &str) -> Result<String, String> {
 				// Handle Unicode escape codes: \u{1F600} → '😀'.
 				Some('u') => {
 					if chars.next() != Some('{') {
-						return Err(
-							"Invalid unicode escape sequence: missing leading '{'.".to_string()
-						);
+						return Err("Invalid unicode escape sequence: missing leading '{'.".to_string());
 					}
 					let mut hex = String::new();
 					while let Some(&u) = chars.peek() {
@@ -172,10 +168,8 @@ pub(self) fn unescape_string(input: &str) -> Result<String, String> {
 							return Err("Invalid character in unicode escape.".to_string());
 						}
 					}
-					let code_point = u32::from_str_radix(&hex, 16)
-						.map_err(|_| "Failed to parse unicode hex.".to_string())?;
-					let unicode_char = std::char::from_u32(code_point)
-						.ok_or_else(|| "Invalid unicode code point.".to_string())?;
+					let code_point = u32::from_str_radix(&hex, 16).map_err(|_| "Failed to parse unicode hex.".to_string())?;
+					let unicode_char = std::char::from_u32(code_point).ok_or_else(|| "Invalid unicode code point.".to_string())?;
 					result.push(unicode_char);
 				},
 

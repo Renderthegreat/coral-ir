@@ -2,6 +2,7 @@ use crate::language::lexer::{
 	Token,
 };
 
+use crate::language::parser::ParseError::UnknownSyntax;
 use crate::types::Type;
 
 use ::std::{
@@ -42,6 +43,9 @@ pub struct Function {
 	pub body: Vec</* TODO: `Statement` */ ()>,
 }
 
+#[derive(Clone, Debug)]
+pub struct PropertyAccess {}
+
 #[derive(thiserror::Error, Default, Debug)]
 pub enum ParseError<'source> {
 	#[error("Unexpected end of file.")]
@@ -55,50 +59,115 @@ pub enum ParseError<'source> {
 }
 
 macro_rules! match_for_token {
-	($lexer:expr, $token_type:ident, $($item:ident),*) => {
+	// For unit enums with no extra arguments.
+	($lexer:expr, $token_type:ident) => {
 		{
 			let token = $lexer.next();
 			match token {
-				Some(Ok(Token::$token_type($($item),*))) => ($($item),*),
-				// TODO: Add positional data.
+				Some(Ok(Token::$token_type)) => (),
 				Some(Ok(token)) => return Err(Box::new(ParseError::UnexpectedToken(token))),
 				Some(Err(error)) => return Err(Box::new(error)),
 				None => return Err(Box::new(ParseError::UnexpectedEOF)),
 			}
 		}
-	}
+	};
+
+	// For tuple enums with one or more arguments.
+	($lexer:expr, $token_type:ident, $first_item:ident $(, $item:ident)*) => {
+		{
+			match $lexer.next() {
+				Some(Ok(Token::$token_type($first_item $(, $item)*))) => ($first_item $(, $item)*),
+				Some(Ok(token)) => return Err(Box::new(ParseError::UnexpectedToken(token))),
+				Some(Err(error)) => return Err(Box::new(error)),
+				None => return Err(Box::new(ParseError::UnexpectedEOF)),
+			}
+		}
+	};
 }
 
-pub fn parse<'source>(
-	lexer: &mut logos::Lexer<'source, Token<'source>>,
-) -> Result<Vec<Item>, Box<dyn Error + 'source>> {
-	let items: Vec<Item> = Vec::new();
+macro_rules! match_for_path {
+	// TODO: ...
+	($lexer:expr) => {{
+		match $lexer.next() {
+			Some(Ok(Token::Path(path))) => path,
+			Some(Ok(Token::Identifier(path))) => path,
+			Some(Ok(token)) => return Err(Box::new(ParseError::UnexpectedToken(token))),
+			Some(Err(error)) => return Err(Box::new(error)),
+			None => return Err(Box::new(ParseError::UnexpectedEOF)),
+		}
+	}};
+}
+
+macro_rules! trailing_comma {
+	($lexer:expr) => {
+		match $lexer.next() {
+			Some(Ok(Token::Comma)) => true,
+			Some(Ok(token)) => return Err(Box::new(ParseError::UnexpectedToken(token))),
+			Some(Err(error)) => return Err(Box::new(error)),
+			None => false,
+		}
+	};
+}
+
+pub fn parse<'source>(lexer: &mut logos::Lexer<'source, Token<'source>>) -> Result<Vec<Item>, Box<dyn Error + 'source>> {
+	let mut items: Vec<Item> = Vec::new();
 
 	while let Some(Ok(token)) = lexer.next() {
-		match token {
+		items.push(match token {
 			Token::Whitespace => continue,
 			Token::CommentSingle(_) | Token::CommentMulti(_) => continue,
 
+			// 'fn'.
 			Token::Function => {
 				let name = match_for_token!(lexer, Identifier, name);
-				println!("{:#?}", name);
 
-				let parameters_lexer =
-					Token::lexer(match match_for_token!(lexer, CurvedBrackets, source) {
-						Some(source) => source,
-						None => return Err(Box::new(ParseError::UnknownSyntax)),
-					});
+				let mut parameters_lexer = Token::lexer(match match_for_token!(lexer, CurvedBrackets, source) {
+					Some(source) => source,
+					None => return Err(Box::new(ParseError::UnknownSyntax)),
+				});
 
-				let parameters: Vec<(String, Type)> = Vec::new();
+				let mut parameters: Vec<(String, Type)> = Vec::new();
 
-				loop {}
+				loop {
+					if parameters_lexer.remainder().trim_start().is_empty() {
+						break;
+					};
+
+					let name = match_for_token!(parameters_lexer, Identifier, name);
+					match_for_token!(parameters_lexer, Colon);
+					let r#type = match_for_path!(parameters_lexer);
+
+					parameters.push((name, Type::try_from(r#type)?));
+
+					if !trailing_comma!(parameters_lexer) {
+						break;
+					};
+				}
+
+				match_for_token!(lexer, Arrow);
+
+				let return_type = match_for_path!(lexer);
+
+				println!(
+					r"
+						name: {},
+						params: {:?},
+						returns: {}
+					",
+					name, parameters, return_type
+				);
 
 				todo!();
 			},
 
+			// '$identifier'.
+			Token::Path(path) | Token::Identifier(path) => {
+				let property_access = todo!();
+			},
+
 			// TODO:
 			_ => todo!("Parsing for token `{token:?}` is not implemented yet."),
-		}
+		});
 	}
 
 	if let Some(Err(error)) = lexer.next() {

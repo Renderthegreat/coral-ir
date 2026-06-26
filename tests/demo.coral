@@ -1,3 +1,1 @@
-fn main() -> i64 {
-
-};
+fn my_fn(foo: u32, bar: u32) -> u32

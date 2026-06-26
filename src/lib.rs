@@ -1,4 +1,5 @@
-#![feature(hash_map_macro)]
+#![feature(type_info)]
+
 pub mod architecture;
 
 pub mod store;
@@ -10,15 +11,27 @@ pub mod language;
 
 pub mod checking;
 
+pub mod luau;
+
 use ::mlua;
 
-pub struct Instance<'lua> {
-	pub(crate) lua: &'lua mlua::Lua,
+#[derive(Clone)]
+pub struct Instance {
+	pub(crate) lua: mlua::Lua,
 	pub(crate) target: architecture::Architecture,
 }
 
-impl<'lua> Instance<'lua> {
-	pub fn new(target: architecture::Architecture) -> Instance<'lua> {
-		todo!("Instance::new is not implemented yet.");
+impl Instance {
+	pub fn new(target: architecture::Architecture) -> mlua::Result<Instance> {
+		let lua: mlua::Lua = luau::create()?;
+
+		let chunk = lua.load(include_str!("luau/test.luau"));
+
+		chunk.set_name("test.lua").exec().unwrap();
+
+		return Ok(Instance {
+			lua: lua,
+			target: target,
+		});
 	}
 }

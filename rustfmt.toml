@@ -27,7 +27,9 @@ imports_granularity = "Crate"
 group_imports = "Preserve"
 reorder_imports = false
 
-max_width = 0
+max_width = 1_000_000_000
+struct_lit_width = 0
+
 
 control_brace_style = "AlwaysSameLine"
 

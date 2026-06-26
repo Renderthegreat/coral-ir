@@ -1,11 +1,15 @@
 use ::mlua_magic_macros;
 
-use ::thiserror::Error;
+use ::thiserror;
+
+use ::std::error::{
+	Error,
+};
 
 ///
 /// A type error.
 ///
-#[derive(Clone, Error, Debug)]
+#[derive(Clone, thiserror::Error, Debug)]
 #[mlua_magic_macros::enumeration]
 pub enum TypeError {
 	#[error("Cannot dereference `{0}` because it is not a reference type.")]
@@ -69,6 +73,25 @@ impl ::std::fmt::Display for Type {
 
 			&&Self::Unknown() => write!(f, "?"),
 		}
+	}
+}
+
+impl TryFrom<String> for Type {
+	type Error = Box<dyn Error>;
+
+	fn try_from(value: String) -> Result<Self, Self::Error> {
+		let prefix = value.chars().nth(0).unwrap();
+		return Ok(match prefix {
+			'u' | 'i' => {
+				let size = value[1 ..].parse::<u64>()?;
+
+				let signed = if prefix == 'u' { false } else { true };
+
+				Type::Integer(size, signed)
+			},
+
+			_ => todo!("Type string conversion not implemented yet."),
+		});
 	}
 }
 
