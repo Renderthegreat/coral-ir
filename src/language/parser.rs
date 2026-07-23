@@ -1,9 +1,15 @@
-use crate::language::lexer::{
-	Token,
+use crate::{
+	types::Type,
+	store::{
+		Value,
+		Location,
+	},
+	language::{
+		lexer::Token,
+		features::*,
+		scope::Scope,
+	},
 };
-
-use crate::language::parser::ParseError::UnknownSyntax;
-use crate::types::Type;
 
 use ::std::{
 	error::{
@@ -24,6 +30,7 @@ pub struct Position {
 	pub column: u64,
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for Position {
 	fn to_string(&self) -> String {
 		return format!("{0}:{1}", self.line, self.column);
@@ -31,16 +38,16 @@ impl ToString for Position {
 }
 
 #[derive(Clone, Debug)]
-pub enum Item {
-	Function(Function),
+pub struct Path {
+	pub sections: Vec<(String,)>,
 }
 
 #[derive(Clone, Debug)]
-pub struct Function {
-	pub name: String,
-	pub parameters: Vec<(String, Type)>,
-	pub return_type: Type,
-	pub body: Vec</* TODO: `Statement` */ ()>,
+pub enum Item {
+	Function(Function),
+	Constant(Constant),
+
+	LuauBlock(LuauBlock),
 }
 
 #[derive(Clone, Debug)]
@@ -109,10 +116,12 @@ macro_rules! trailing_comma {
 	};
 }
 
-pub fn parse<'source>(lexer: &mut logos::Lexer<'source, Token<'source>>) -> Result<Vec<Item>, Box<dyn Error + 'source>> {
+pub fn parse<'source>(lexer: &mut logos::Lexer<'source, Token<'source>>, scope: &mut Scope) -> Result<Vec<Item>, Box<dyn Error + 'source>> {
 	let mut items: Vec<Item> = Vec::new();
 
 	while let Some(Ok(token)) = lexer.next() {
+		println!("{token:?}");
+
 		items.push(match token {
 			Token::Whitespace => continue,
 			Token::CommentSingle(_) | Token::CommentMulti(_) => continue,
@@ -148,6 +157,8 @@ pub fn parse<'source>(lexer: &mut logos::Lexer<'source, Token<'source>>) -> Resu
 
 				let return_type = match_for_path!(lexer);
 
+				let body = match_for_token!(lexer, Block, body);
+
 				println!(
 					r"
 						name: {},
@@ -160,9 +171,36 @@ pub fn parse<'source>(lexer: &mut logos::Lexer<'source, Token<'source>>) -> Resu
 				todo!();
 			},
 
+			// 'const'.
+			Token::Constant => {
+				let name = match_for_token!(lexer, Identifier, name);
+
+				match_for_token!(lexer, Colon);
+
+				let path = match_for_token!(lexer, Path, path);
+
+				match_for_token!(lexer, Equal);
+
+				todo!();
+			},
+
 			// '$identifier'.
 			Token::Path(path) | Token::Identifier(path) => {
 				let property_access = todo!();
+			},
+
+			Token::LuauBlock(line) => {
+				let mut lines = Vec::from([line.strip_prefix(" ").unwrap_or(line)]);
+
+				let mut peekable = lexer.peekable();
+
+				while let Some(Ok(Token::LuauBlock(next_line))) = peekable.peek() {
+					lines.push(next_line.strip_prefix(" ").unwrap_or(line));
+
+					peekable.next();
+				}
+
+				Item::LuauBlock(LuauBlock::new(lines.join("\n")))
 			},
 
 			// TODO:

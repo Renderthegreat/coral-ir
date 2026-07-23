@@ -1,1 +1,2 @@
-fn my_fn(foo: u32, bar: u32) -> u32
+# local foo = {};
+# local bar = {};

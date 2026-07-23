@@ -1,4 +1,5 @@
 #![feature(type_info)]
+#![feature(bstr)]
 
 pub mod architecture;
 
@@ -16,20 +17,20 @@ pub mod luau;
 use ::mlua;
 
 #[derive(Clone)]
-pub struct Instance {
+pub struct Compiler {
 	pub(crate) lua: mlua::Lua,
 	pub(crate) target: architecture::Architecture,
 }
 
-impl Instance {
-	pub fn new(target: architecture::Architecture) -> mlua::Result<Instance> {
+impl Compiler {
+	pub fn new(target: architecture::Architecture) -> mlua::Result<Self> {
 		let lua: mlua::Lua = luau::create()?;
 
 		let chunk = lua.load(include_str!("luau/test.luau"));
 
-		chunk.set_name("test.lua").exec().unwrap();
+		chunk.set_name("test.luau").exec().unwrap();
 
-		return Ok(Instance {
+		return Ok(Self {
 			lua: lua,
 			target: target,
 		});

@@ -4,9 +4,20 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+console = "0.16.4"
+
 logos = "0.16.1"
+
+lune-utils = "0.3.4"
 mlua = { version = "0.11", features = ["luau", "macros", "serde", "userdata-wrappers"] } # TODO: Add 'module'?
 mlua-magic-macros = "0.2.0"
-rand = "0.10.1"
+
 strum = { version = "0.26", features = ["derive"] }
 thiserror = "^2"
+
+[lints.clippy]
+use_self = 'warn'
+needless_return = 'allow'
+unused_unit = 'allow'
+redundant_field_names = 'allow'
+needless_pub_self = 'allow'

@@ -1,25 +1,23 @@
 //!
-//! # Moon standards
+//! # Moon.
 //!
-//! A bunch of utils that makes *Lua* much more favorable.
-//! I hope this gets adopted to *real* *Lua* implementations.
+//! A bunch of utils that makes *Luau* much more favorable.
+//! I hope this gets adopted to *real* *Luau* implementations.
 //! For now this is just a niche implementation by yours truely.
+//!
 //! :D
 //!
 
-use crate::luau::hacks::{
-	extract_lua_from_string,
-};
-
-use ::std::collections::HashMap;
+pub mod clone;
+pub mod coerce;
+pub mod console;
+pub mod function;
 
 use ::mlua::{
 	self,
 	ObjectLike as _,
 };
-use ::mlua_magic_macros;
 
-use ::rand;
 ///
 /// Modernize the *Lua* instance with *Moon*.
 ///
@@ -28,6 +26,9 @@ pub(crate) fn modernize(lua: &mut mlua::Lua) -> mlua::Result<()> {
 
 	let globals = lua.globals();
 
+	// globals.set("_VERSION", "MOON")?; // TODO: Add *Luau* version.
+
+	/*
 	let meta = lua.create_table()?;
 
 	let index_hook = lua.create_function(move |lua, (context_table, value): (mlua::Value, mlua::Value)| {
@@ -47,39 +48,72 @@ pub(crate) fn modernize(lua: &mut mlua::Lua) -> mlua::Result<()> {
 	})?;
 
 	meta.set("__index", index_hook)?;
+	*/
 
 	// Set all primitive types to use modern meta-data.
 	// ...
 
-	/*let mut symbol_registry: HashMap<&str, Symbol> = HashMap::new();
+	/*
+	let mut symbol_registry: HashMap<&str, Symbol> = HashMap::new();
 	symbol_registry.insert("to_string", Symbol::new(Some("to_string".to_string())));
 	mlua_magic_macros::load!(lua, Symbol);
-	moon.set("symbol_registry", symbol_registry)?;*/
+	moon.set("symbol_registry", symbol_registry)?;
+	*/
+
+	moon.set(
+		"pointer",
+		lua.create_function(|_lua: &mlua::Lua, value: mlua::Value| {
+			let pointer = value.to_pointer();
+
+			return Ok(mlua::Value::Integer(pointer as i64)); // TODO:
+		})?,
+	)?;
 
 	globals.set("__MOON__", moon)?;
-
 	// TODO: Update to use a console.
-	let print: mlua::prelude::LuaFunction = lua.create_function(move |lua, value: mlua::Value| {
-		println!("{:?}", value);
+	let console: console::Console = console::Console::default();
+	globals.set("console", console)?;
+	globals.set("print", globals.get_path::<mlua::Function>("console.log")?.bind(globals.get::<mlua::Value>("console")?)?)?;
 
-		return Ok(());
-	})?;
-	globals.set("print", print)?;
+	globals.set("clone", lua.create_function(clone::clone)?)?;
 
-	let chunk = lua.load(include_str!("moon.luau"));
+	globals.set(
+		"expect",
+		lua.create_function(|_lua: &mlua::Lua, value: mlua::Value| -> mlua::Result<mlua::Value> {
+			return match value {
+				mlua::Value::Nil => Err(mlua::Error::RuntimeError(String::from("Expected value to not be nil!"))),
+				_ => Ok(value),
+			};
+		})?,
+	)?;
 
+	// globals.set("loadstring", mlua::Value::Nil)?;
+
+	// mlua_magic_macros::load!(lua, coerce::Coercible);
+
+	let mut chunk;
+
+	chunk = lua.load(include_str!("moon.luau"));
 	chunk.set_name("moon.luau").exec().unwrap();
+	chunk = lua.load(include_str!("moon/symbol.luau"));
+	chunk.set_name("moon/symbol.luau").exec().unwrap();
+	chunk = lua.load(include_str!("moon/class.luau"));
+	chunk.set_name("moon/class.luau").exec().unwrap();
+
+	// TODO: Move!
+	// chunk = lua.load(include_str!("coral.luau"));
+	// chunk.set_name("coral.luau").exec().unwrap();
 
 	return Ok(());
 }
 
 // === UTILS ===
 
-pub(self) fn to_string(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<mlua::String> {
+/*pub(self) fn to_string(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<mlua::String> {
 	let tostring: mlua::Function = lua.globals().get("tostring")?;
 
 	return match value {
-		::mlua::Value::Table(table) => {
+		::mlua::Value::Table(_table) => {
 			todo!();
 		},
 
@@ -88,7 +122,7 @@ pub(self) fn to_string(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<mlua
 		// TODO: Determine appropriate behaviour.
 		_ => lua.create_string("???"),
 	};
-}
+}*/
 
 /*// === LUA MECHANICS ===
 

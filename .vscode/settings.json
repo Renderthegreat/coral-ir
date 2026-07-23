@@ -1,0 +1,8 @@
+{
+    "luau-lsp.sourcemap.enabled": false,
+	"luau-lsp.platform.type": "standard",
+	// "luau-lsp.sourcemap.sourcemapFile": "sourcemap.json",
+    "luau-lsp.types.definitionFiles": [
+        "src/luau/moon/globals.d.luau",
+    ],
+}

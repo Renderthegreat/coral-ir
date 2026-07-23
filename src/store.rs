@@ -16,15 +16,14 @@ use ::mlua_magic_macros;
 #[mlua_magic_macros::enumeration]
 pub enum Location {
 	Register(Register),
-	Stack(u64 /* 16 *Exobytes*. */),
-
+	// Stack(u64 /* 16 *Exobytes*. */),
 	/// The value is an immediate value, and is stored in the instruction itself.
 	///
 	/// Example:
-	/// ```gas
-	/// mov (%x0) /* ← This is an immediate value. */, 5;
+	/// ```coral
+	/// foo = 5; // `5` is the immediate value.
 	/// ```
-	Immediate(Box<[Location]>),
+	Immediate,
 
 	#[default]
 	Unknown,

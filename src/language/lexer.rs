@@ -44,6 +44,10 @@ impl From<String> for LexError {
 pub enum Token<'source> {
 	#[token(r"fn")]
 	Function,
+	#[token(r"const")]
+	Constant,
+	#[token(r"let")]
+	LocalVariable,
 
 	#[regex(r"\$")]
 	// TODO: Rename? I just came up with this name on the spot.
@@ -70,10 +74,47 @@ pub enum Token<'source> {
 	#[token("[", |lexer| extract_nested(lexer, ('[', ']')))]
 	SquareBrackets(Option<&'source str>),
 
+	#[token("{", |lexer| extract_nested(lexer, ('{', '}')))]
+	Block(Option<&'source str>),
+
+	#[regex("#[^\n]*", extract_luau_block, allow_greedy = true)]
+	LuauBlock(&'source str),
+
+	#[token(">>")]
+	Out,
+	#[token("<<")]
+	In,
+
+	#[token(">1>")]
+	BitShiftRight1,
+	#[token(">0>")]
+	BitShiftRight0,
+	#[token("<1<")]
+	BitShiftLeft1,
+	#[token("<0<")]
+	BitShiftLeft0,
+
+	#[token("==")]
+	Equal,
+	#[token("!=")]
+	NotEqual,
+	#[token(">=")]
+	MoreOrEqual,
+	#[token("<=")]
+	LessOrEqual,
+	#[token(">")]
+	More,
+	#[token("<")]
+	Less,
+
 	#[token("->")]
 	Arrow,
 	#[token(":")]
 	Colon,
+	#[token(";")]
+	Semicolon,
+	#[token("=")]
+	Equals,
 	#[token(",")]
 	Comma,
 
@@ -112,6 +153,11 @@ pub(self) fn extract_nested<'source>(lexer: &mut logos::Lexer<'source, Token<'so
 	} else {
 		return None; // Unmatched error.
 	};
+}
+
+fn extract_luau_block<'source>(lexer: &mut logos::Lexer<'source, Token<'source>>) -> &'source str {
+	dbg!(lexer.remainder());
+	return lexer.slice().strip_prefix('#').unwrap_or("");
 }
 
 pub(self) fn unescape_string(input: &str) -> Result<String, String> {
@@ -166,7 +212,7 @@ pub(self) fn unescape_string(input: &str) -> Result<String, String> {
 							hex.push(chars.next().unwrap());
 						} else {
 							return Err("Invalid character in unicode escape.".to_string());
-						}
+						};
 					}
 					let code_point = u32::from_str_radix(&hex, 16).map_err(|_| "Failed to parse unicode hex.".to_string())?;
 					let unicode_char = std::char::from_u32(code_point).ok_or_else(|| "Invalid unicode code point.".to_string())?;

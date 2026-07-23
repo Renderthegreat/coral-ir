@@ -12,7 +12,7 @@ use ::mlua;
 pub(crate) fn create() -> mlua::Result<mlua::Lua> {
 	// TODO: Make this safe.
 	let mut lua = unsafe {
-		mlua::Lua::unsafe_new_with(mlua::StdLib::DEBUG, mlua::LuaOptions::default())
+		mlua::Lua::unsafe_new_with(mlua::StdLib::DEBUG | mlua::StdLib::ALL_SAFE, mlua::LuaOptions::default())
 		//.expect("*Lua* might not be installed on this system.")
 	};
 

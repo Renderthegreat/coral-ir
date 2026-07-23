@@ -14,7 +14,7 @@ use ::std::{
 
 const SOURCE: &str = include_str!("demo.coral");
 
-const TARGET: LazyLock<coral_ir::architecture::Architecture> = LazyLock::new(|| {
+static TARGET: LazyLock<coral_ir::architecture::Architecture> = LazyLock::new(|| {
 	coral_ir::architecture::Architecture {
 		endianness: coral_ir::architecture::Endianness::Big(),
 		name: "ARM64".to_string(),
@@ -25,17 +25,19 @@ const TARGET: LazyLock<coral_ir::architecture::Architecture> = LazyLock::new(|| 
 pub fn instance() -> Result<(), Box<dyn Error>> {
 	let target = TARGET.clone();
 
-	let instance = coral_ir::Instance::new(target);
+	let instance = coral_ir::Compiler::new(target);
 
 	return Ok(());
 }
 
 #[test]
-pub fn lex() -> Result<(), Box<dyn Error>> {
-	let mut lexer: logos::Lexer<'_, coral_ir::language::lexer::Token> = coral_ir::language::lexer::Token::lexer(SOURCE);
-	// let items = coral_ir::language::parser::parse(&mut lexer)?;
+pub fn full() -> Result<(), Box<dyn Error>> {
+	let mut top_scope = coral_ir::language::scope::Scope::default();
 
-	// println!("{:#?}", items);
+	let mut lexer: logos::Lexer<'_, coral_ir::language::lexer::Token> = coral_ir::language::lexer::Token::lexer(SOURCE);
+	let items = coral_ir::language::parser::parse(&mut lexer, &mut top_scope)?;
+
+	println!("{:#?}", items);
 
 	return Ok(());
 }
