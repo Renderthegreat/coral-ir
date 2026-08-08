@@ -20,11 +20,12 @@ local Symbol = {
 
 			-- TODO: Add `display` directive.
 			['__tostring'] = function (self): string
-				return `Symbol.of({console:format(if self.shared then self.label else self.pointer, 0, true)})`;
+				-- TODO: Choose correct version.
+				return `Symbol.of({console:format(if self.shared then self.label else self.pointer, { max_depth = 0, format_strings = true, })})`;
 			end,
 
 			-- Without the same pointers, indexing doesn't work.
-			-- So we return a reference.
+			-- So, we return a reference.
 			['__clone'] = function (self): Symbol
 				return self;
 			end,
@@ -58,7 +59,8 @@ setmetatable(Symbol, {
 	end,
 });
 
-_G.__MOON__.meta_symbol_registry = {
+-- TODO: Allow custom registries!
+_G.__MOON__.global_symbol_registry = {
 	--> Calculation operators. <--
 	[Symbol.of('+')] = '__add',
 	[Symbol.of('-')] = '__sub',
@@ -70,6 +72,7 @@ _G.__MOON__.meta_symbol_registry = {
 	[Symbol.of('(-)')] = '__unm',
 
 	--> Bitwise operators. <--
+	[Symbol.of('(~)')] = '__bnot',
 	-- Not supported in *Luau*.
 	--[[
 	[Symbol.of('&')] = '__band',
@@ -98,21 +101,65 @@ _G.__MOON__.meta_symbol_registry = {
 
 	[Symbol.of('call')] = '__call',
 	
-	[Symbol.of('meta')] = '__metatable',
+	[Symbol.of('meta_table')] = '__metatable',
 
 	[Symbol.of('iterator')] = '__iter',
-
-	-- [Symbol.of('pairs')] = '__pairs',
-	-- [Symbol.of('ipairs')] = '__ipairs',
 
 	-- [Symbol.of('gc')] = '__gc',
 	[Symbol.of('strength')] = '__mode',
 
-	[Symbol.of('name')] = '__name',
+	[Symbol.of('type')] = '__type',
 
 	--> Moon. <--
 	[Symbol.of('new')] = '__constructor',
 	[Symbol.of('clone')] = '__clone',
 };
 
-__MOON__.generate_meta_symbol_proxy();
+-- _G.__MOON__.generate_global_symbol_proxy = function ()
+-- 	local map = {};
+
+-- 	for symbol, meta_method in pairs(_G.__MOON__.global_symbol_registry) do
+-- 		if meta_method == '__index' or meta_method == '__newindex' then
+-- 			-- Special handling to prevent recursion.
+-- 			map[meta_method] = function (self, key)
+-- 				-- First try raw lookup (normal fields).
+-- 				local value = rawget(self, key);
+-- 				if value ~= nil then
+-- 					return value;
+-- 				end;
+
+-- 				-- Then try symbol-based handler.
+-- 				local handler = rawget(self, symbol); -- `rawget` to avoid recursion.
+-- 				if typeof(handler) == 'function' then
+-- 					return handler(self, key);
+-- 				end;
+
+-- 				return nil;
+-- 				-- error("attempt to index " .. tostring(self) .. " with unknown key: " .. tostring(key), 2); -- TODO: Do we want this?
+-- 			end;
+-- 		elseif meta_method == '__clone' then
+-- 			map[meta_method] = nil;
+-- 		else
+-- 			-- Normal wrapper for other meta-methods.
+-- 			map[meta_method] = function (self, ...)
+-- 				console:warn(symbol);
+-- 				local handler = rawget(self, symbol); -- Avoid recursive `__index`.
+-- 				console:warn(handler);
+
+-- 				if typeof(handler) == 'function' then
+-- 					return handler(self, ...);
+-- 				end;
+
+-- 				-- return nil;
+-- 				error(`No handler for \`{meta_method}\`.`);
+-- 			end;
+-- 		end;
+-- 	end;
+
+-- 	print(map);
+
+-- 	_G.__MOON__.meta_symbol_map = map;
+-- 	return map;
+-- end;
+
+-- __MOON__.generate_global_symbol_proxy();

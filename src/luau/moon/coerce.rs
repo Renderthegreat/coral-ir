@@ -1,4 +1,8 @@
-use ::mlua;
+use ::mlua::{
+	self,
+	MetaMethod,
+	UserDataMethods,
+};
 use ::mlua_magic_macros;
 
 #[derive(Clone)]
@@ -9,21 +13,50 @@ pub struct Coercible {
 
 #[mlua_magic_macros::implementation]
 impl Coercible {
-	pub fn extract(&self) -> mlua::Value {
-		return self.value.clone();
+	pub fn new(value: mlua::Value) -> mlua::Result<Self> {
+		return Ok(Self {
+			value: value,
+		});
 	}
 }
 
-/*impl mlua::UserData for Coercible {
-	fn add_methods<M: mlua::prelude::LuaUserDataMethods<Self>>(methods: &mut M) -> () {
+impl mlua::UserData for Coercible {
+	fn register(registry: &mut mlua::UserDataRegistry<Self>) {
+		registry.add_meta_method(MetaMethod::Add, |lua: &mlua::Lua, self_: &Self, other: mlua::Value| -> mlua::Result<Self> {
+			dbg!(self_.clone().value, other);
 
+			return todo!();
+		});
+
+		Self::_to_mlua_fields(registry);
+		Self::_to_mlua_methods(registry);
 	}
-	fn add_fields<F: mlua::prelude::LuaUserDataFields<Self>>(fields: &mut F) -> () {
+}
 
+impl mlua::FromLua for Coercible {
+	fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
+		let output: mlua::Result<Self> = match value {
+			mlua::Value::UserData(user_data) => {
+				return match user_data.borrow::<Self>() {
+					Ok(b) => Ok((*b).clone()),
+					Err(_) => {
+						Err(mlua::Error::FromLuaConversionError {
+							from: "UserData",
+							to: String::from("Coercible"),
+							message: Some("userdata is not this exact Rust type".into()),
+						})
+					},
+				};
+			},
+			_ => {
+				Err(mlua::Error::FromLuaConversionError {
+					from: value.type_name(),
+					to: String::from("Coercible"),
+					message: Some("expected userdata created by mlua_magic_macros".into()),
+				})
+			},
+		};
+
+		return output;
 	}
-	fn register(registry: &mut mlua::prelude::LuaUserDataRegistry<Self>) -> () {
-
-	}
-}*/
-
-mlua_magic_macros::compile!(type_path = Coercible, fields = false, methods = false, variants = false,);
+}

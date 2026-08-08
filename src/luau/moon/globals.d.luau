@@ -3,8 +3,11 @@ TODO:
 --]=]
 type MoonInternals = {
 	pointer: (value: any) -> number,
-	meta_symbol_proxy: { [Symbol]: string, },
-	generate_meta_symbol_proxy: () -> (),
+	raw_get_meta: ({ any }) -> { any }?,
+
+	meta_symbol_map: { [Symbol]: string, },
+	generate_global_symbol_map: () -> (),
+	global_symbol_registry: { [Symbol]: string, },
 };
 --[=[
 Moon internals.
@@ -29,8 +32,11 @@ type ConsoleImpl = {
 	warn: (self: ConsoleImpl, ...any) -> (),
 	error: (self: ConsoleImpl, ...any) -> (),
 
-	-- TODO: `depth`.
-	format: (self: ConsoleImpl, any, depth: number? --[[TODO: Option<T>]], format_strings: boolean?) -> string,
+	format: (self: ConsoleImpl, any, {
+		max_depth: number?,
+		format_strings: boolean?,
+		colors_enabled: boolean?,
+	}?) -> string,
 };
 
 declare console: ConsoleImpl;
@@ -52,13 +58,47 @@ type SymbolImpl = {
 declare Symbol: SymbolImpl;
 
 
+export type Object<T> = T & {
+	[Symbol]: any, -- TODO: ...
+};
+
+export type ObjectImpl = {
+	from: <T>(T) -> Object<T>,
+};
+
+declare Object: ObjectImpl;
+
+
 export type Class<T, P...> = {
-	new: (P...) -> T,
+	new: (P...) -> (),
 } & Brand<'class'>;
 export type Constructor<T, P...> = (T, P...) -> T;
 
 declare function Class<T, P...>(table: { [Symbol]: Constructor<T, P...>, } & T): Class<T>;
 
+
+export type Coercible<T> = {
+
+};
+
+-- TODO: Use `Class`.
+export type CoercibleImpl = {
+	new: <T>(T) -> Coercible<T>
+};
+
+declare Coercible: CoercibleImpl;
+
+
+export type Pointer<T> = T & {
+	__inner: T,
+};
+
+export type PointerImpl = {
+	refer: <T>(T) -> Pointer<T>,
+	derefer: <T>(T) -> Pointer<T>,
+};
+
+declare Pointer: PointerImpl;
 
 --[[
 export type function _(): type

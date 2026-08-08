@@ -1,80 +1,88 @@
-use ::std::collections::{
-	HashMap,
-};
+use std::collections::HashMap;
 
-use ::mlua::{
-	self,
+use mlua::{
+	Function,
+	Lua,
+	Result,
+	Table,
 	Value,
-	MultiValue,
 };
 
-pub fn clone(lua: &mlua::Lua, (value, mut seen): (Value, Option<HashMap<usize, mlua::Table>>)) -> mlua::Result<mlua::Value> {
-	let mut binding = HashMap::new();
-	let seen: &mut HashMap<usize, mlua::Table> = seen.as_mut().unwrap_or(&mut binding);
+// TODO: Add options!
+pub fn clone(lua: &Lua, (value, ignore_method): (Value, Option<bool>)) -> Result<Value> {
+	let ignore_method = ignore_method.unwrap_or(false);
 
-	return Ok(match value {
-		Value::Buffer(buffer) => {
-			let byte_vec = buffer.to_vec();
+	let mut seen = HashMap::<usize, Table>::new();
 
-			Value::Buffer(lua.create_buffer(byte_vec)?)
-		},
-		// Don't clone since it would not make since to do so.
+	return clone_impl(lua, value, &mut seen, ignore_method);
+}
+
+fn clone_impl(lua: &Lua, value: Value, seen: &mut HashMap<usize, Table>, ignore_method: bool) -> Result<Value> {
+	Ok(match value {
+		Value::Buffer(buffer) => Value::Buffer(lua.create_buffer(buffer.to_vec())?),
+
+		// Immutable / shared values.
 		error @ Value::Error(_) => error,
-		Value::Function(function) => Value::Function(function.deep_clone()?),
-		Value::Table(table) => {
-			let table_pointer = table.to_pointer() as usize;
-
-			if let Some(cloned_table) = seen.get(&table_pointer) {
-				return Ok(Value::Table(cloned_table.clone()));
-			};
-
-			let cloned_table = lua.create_table()?;
-			seen.insert(table_pointer, cloned_table.clone());
-
-			if let Some(meta_table) = table.metatable()
-				&& let Ok(meta_method_value) = meta_table.get::<Value>(String::from("__clone"))
-				&& let Some(meta_method) = meta_method_value.as_function()
-			{
-				let mut multi_value = MultiValue::new();
-
-				multi_value.push_back(Value::Table(table));
-
-				// TODO: IMPORTANT!!! THIS BREAKS WHEN PARAMS ARE WRONG!
-				// /!\ /!\ /!\ \\
-
-				return if let Ok(cloned) = meta_method.call::<Value>(multi_value) {
-					Ok(cloned)
-				} else {
-					Err(mlua::Error::RuntimeError(String::from("The `__clone` meta-method is present, but calling it failed.")))
-				};
-			};
-
-			// Deep clone pairs recursively.
-			for pairs in table.pairs::<Value, Value>() {
-				let (key, value) = pairs?;
-				let cloned_key = clone(lua, (key, Some(seen.clone())))?;
-				let cloned_value = clone(lua, (value, Some(seen.clone())))?;
-				cloned_table.set(cloned_key, cloned_value)?;
-			}
-
-			// Handle metatables safely.
-			if let Some(metatable) = table.metatable() {
-				let cloned_metatable = clone(lua, (Value::Table(metatable), Some(seen.clone())))?;
-				if let Value::Table(mt) = cloned_metatable {
-					cloned_table.set_metatable(Some(mt))?;
-				};
-			};
-
-			Value::Table(cloned_table)
-		},
-		Value::Thread(thread) => {
-			todo!();
-		},
 		user_data @ Value::UserData(_) => user_data,
-		#[allow(clippy::clone_on_copy)] // Since `Vector` might be updated.
+
+		Value::Function(function) => Value::Function(function.deep_clone()?),
+
+		#[allow(clippy::clone_on_copy)]
 		Value::Vector(vector) => Value::Vector(vector.clone()),
 
-		// Other primitives automatically get cloned.
-		_ => value,
-	});
+		Value::Table(table) => {
+			let pointer = table.to_pointer() as usize;
+
+			// Already cloned?
+			if let Some(existing) = seen.get(&pointer) {
+				return Ok(Value::Table(existing.clone()));
+			};
+
+			// Create placeholder first so cyclic references work.
+			let cloned = lua.create_table()?;
+			seen.insert(pointer, cloned.clone());
+
+			// Custom clone meta-method.
+			if let Some(meta_table) = table.metatable() {
+				if !ignore_method && let Ok(method) = meta_table.get::<Function>("__clone") {
+					let result = method.call::<Value>(table.clone())?;
+
+					// Update the cache with the returned table.
+					if let Value::Table(ref new_table) = result {
+						seen.insert(pointer, new_table.clone());
+					};
+
+					return Ok(result);
+				};
+			};
+
+			// Clone every key/value pair.
+			for pair in table.pairs::<Value, Value>() {
+				let (key, value) = pair?;
+
+				let key = clone_impl(lua, key, seen, false)?;
+				let value = clone_impl(lua, value, seen, false)?;
+
+				cloned.set(key, value)?;
+			}
+
+			// Clone the metatable.
+			if let Some(meta) = table.metatable() {
+				// TODO: Should we use `false`?
+				if let Value::Table(new_meta) = clone_impl(lua, Value::Table(meta), seen, false)? {
+					cloned.set_metatable(Some(new_meta))?;
+				};
+			};
+
+			Value::Table(cloned)
+		},
+
+		Value::Thread(_) => {
+			return Err(mlua::Error::RuntimeError("Cannot clone threads".into()));
+		},
+
+		// Other primitives are handled here.
+		// We can just return them since they are not stored by reference.
+		primitive => primitive,
+	})
 }

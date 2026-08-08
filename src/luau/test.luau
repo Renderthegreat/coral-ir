@@ -79,8 +79,8 @@ end;
 local Bar = Class({
 	count = 0,
 	
-	[Symbol.of('new')] = function (self, num: number)
-		return self;
+	[Symbol.of('new')] = function (self, number: number): ()
+		self.count = number;
 	end,
 
 	increment = function (self): number
@@ -98,20 +98,31 @@ local Bar = Class({
 	end,
 });
 
-local bar_a = Bar.new("FIX-ME"); -- TODO: Ensure generics are preserved.
-local bar_b = Bar.new();
 
-bar_a:increment();
-bar_b:increment();
+-- TODO: Remove...
+-- local a = Coercible.new("ABC");
+-- local b = Coercible.new(0xC0FFEE);
 
-print(bar_a);
-print(bar_b);
+local bar_a = Bar.new(1);
+local bar_b = Bar.new(1);
 
-local data = {};
+print(bar_a, bar_b);
 
-while true do
-	data[#data + 1] = clone(bar_a);
-	if #data % 200 == 0 then
-		print(gcinfo());
-	end;
-end;
+-- print(getmetatable(bar_a));
+
+print(bar_a + bar_b);
+
+local object = Object.from({
+	[Symbol.of('+')] = function (self, other)
+		return 1;
+	end,
+});
+-- object[Symbol.of('+')] = function (self, other)
+--	return 1;
+-- end;
+
+-- TODO: Remove `fenv`.
+
+-- print(object);
+
+-- print(object + object);

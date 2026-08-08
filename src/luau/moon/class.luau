@@ -2,10 +2,12 @@
 TODO:
 ]=]
 function Class<T, P...>(value: { [Symbol]: Constructor<T, P...>?, } & T): Class<T>
-	setmetatable(value :: any, __MOON__.meta_symbol_proxy);
+	
+
+	-- print(getmetatable(value), __MOON__.meta_symbol_map);
 
 	local meta: { [Symbol]: Constructor<T, P...>?, } = value;
-	local prototype: { } = clone(value);
+	local prototype: { } = Object.from(value); -- No need to clone since `Object.from` makes a clone.
 
 	-- Remove the constructor from the prototype.
 	prototype[Symbol.of('new')] = nil;
@@ -15,11 +17,15 @@ function Class<T, P...>(value: { [Symbol]: Constructor<T, P...>?, } & T): Class<
 		new = function<P...> (...: P...): T
 			local constructor = expect(meta[Symbol.of('new')]);
 
+			local instance = clone(prototype); -- Another clone to ensure `prototype` is not mutated.
+
 			local run = function (...)
-				return constructor(clone(prototype) --[[ Another clone for the `prototype` for each instance. ]], ...);
+				return constructor(instance, ...);
 			end;
 
-			return run(...);
+			run(...);
+
+			return instance;
 		end,
 
 		['__brand'] = 'class',

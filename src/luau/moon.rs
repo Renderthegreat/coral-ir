@@ -12,11 +12,21 @@ pub mod clone;
 pub mod coerce;
 pub mod console;
 pub mod function;
+pub mod pointer;
 
 use ::mlua::{
 	self,
 	ObjectLike as _,
 };
+use ::mlua_magic_macros;
+
+use crate::luau::moon::{
+	coerce::Coercible,
+	pointer::Pointer,
+};
+
+// TODO:
+pub struct Moon {}
 
 ///
 /// Modernize the *Lua* instance with *Moon*.
@@ -69,7 +79,15 @@ pub(crate) fn modernize(lua: &mut mlua::Lua) -> mlua::Result<()> {
 		})?,
 	)?;
 
+	moon.set(
+		"raw_get_meta",
+		lua.create_function(|_lua: &mlua::Lua, table: mlua::Table| {
+			return Ok(table.metatable());
+		})?,
+	)?;
+
 	globals.set("__MOON__", moon)?;
+
 	// TODO: Update to use a console.
 	let console: console::Console = console::Console::default();
 	globals.set("console", console)?;
@@ -77,11 +95,13 @@ pub(crate) fn modernize(lua: &mut mlua::Lua) -> mlua::Result<()> {
 
 	globals.set("clone", lua.create_function(clone::clone)?)?;
 
+	mlua_magic_macros::load!(lua, Coercible, Pointer);
+
 	globals.set(
 		"expect",
 		lua.create_function(|_lua: &mlua::Lua, value: mlua::Value| -> mlua::Result<mlua::Value> {
 			return match value {
-				mlua::Value::Nil => Err(mlua::Error::RuntimeError(String::from("Expected value to not be nil!"))),
+				mlua::Value::Nil => Err(mlua::Error::RuntimeError(String::from("Expected value to not be nil."))),
 				_ => Ok(value),
 			};
 		})?,
@@ -97,6 +117,8 @@ pub(crate) fn modernize(lua: &mut mlua::Lua) -> mlua::Result<()> {
 	chunk.set_name("moon.luau").exec().unwrap();
 	chunk = lua.load(include_str!("moon/symbol.luau"));
 	chunk.set_name("moon/symbol.luau").exec().unwrap();
+	chunk = lua.load(include_str!("moon/object.luau"));
+	chunk.set_name("moon/object.luau").exec().unwrap();
 	chunk = lua.load(include_str!("moon/class.luau"));
 	chunk.set_name("moon/class.luau").exec().unwrap();
 

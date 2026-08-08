@@ -59,6 +59,26 @@ impl fmt::Display for Label {
 }
 
 #[derive(Clone)]
+#[mlua_magic_macros::structure]
+pub struct FormatConfig {
+	pub max_depth: Option<usize>,
+	pub format_strings: Option<bool>,
+	pub colors_enabled: Option<bool>,
+}
+
+impl Default for FormatConfig {
+	fn default() -> Self {
+		return Self {
+			max_depth: None,
+			format_strings: None,
+			colors_enabled: None,
+		};
+	}
+}
+
+mlua_magic_macros::compile!(type_path = FormatConfig, fields = true, methods = false, variants = false);
+
+#[derive(Clone)]
 pub struct Console {
 	pub output: fn() -> Box<dyn Write>,
 	pub input: fn() -> Box<dyn Read>,
@@ -88,8 +108,9 @@ impl Console {
 		return Ok(());
 	}
 
-	pub fn format(&self, value: mlua::Value, max_depth: Option<usize>, format_strings: Option<bool>) -> mlua::Result<String> {
-		let format_strings = format_strings.unwrap_or(false);
+	pub fn format(&self, value: mlua::Value, config: Option<FormatConfig>) -> mlua::Result<String> {
+		let config = config.unwrap_or_default();
+		let format_strings = config.format_strings.unwrap_or(false);
 
 		// Check if it's a string first to avoid unnecessary pretty-printing overhead.
 		if let (mlua::Value::String(lua_string), true) = (&value, format_strings) {
@@ -101,9 +122,13 @@ impl Console {
 		};
 
 		// Fallback to default pretty-printing for other types.
-		let config = if let Some(depth) = max_depth { FORMAT_CONFIG.with_max_depth(depth) } else { SINGLE_FORMAT_CONFIG };
+		let mut format_config = if let Some(depth) = config.max_depth { FORMAT_CONFIG.with_max_depth(depth) } else { SINGLE_FORMAT_CONFIG };
 
-		let string = pretty_format_value(&value, &config);
+		if let Some(colors_enabled) = config.colors_enabled {
+			format_config = format_config.with_colors_enabled(colors_enabled);
+		};
+
+		let string = pretty_format_value(&value, &format_config);
 		return Ok(string);
 	}
 
@@ -112,7 +137,7 @@ impl Console {
 
 		for value in values {
 			// TODO.
-			string = format!("{}, ", self.format(value, None, None)?);
+			string = format!("{}, ", self.format(value, None)?);
 		}
 
 		return Ok(string);
