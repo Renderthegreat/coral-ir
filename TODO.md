@@ -9,3 +9,4 @@
  - Use `_Generic` in C.
  - Make `universal://`.
  - Make *MC-rs*.
+ - `#` const syntax in *Z#*.
