@@ -1,42 +1,45 @@
 // TODO: Rename this file?
-use crate::architecture::{
-	Register,
+use crate::{
+	architecture::{
+		Register,
+	},
+	types::{
+		Type,
+	},
 };
 
-use crate::types::{
-	Type,
-};
-
-use ::mlua_magic_macros;
-
 ///
-/// The place that the data can be found.
+/// The slot that a given value can be found.
 ///
-#[derive(Clone, Default, Debug)]
-#[mlua_magic_macros::enumeration]
-pub enum Location {
+#[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Debug)]
+pub enum Slot {
+	/// A value stored in a register.
 	Register(Register),
-	// Stack(u64 /* 16 *Exobytes*. */),
-	/// The value is an immediate value, and is stored in the instruction itself.
-	///
-	/// Example:
-	/// ```coral
-	/// foo = 5; // `5` is the immediate value.
-	/// ```
+	/// A value stored on the stack.
+	Stack(u64),
+	/// A value stored on the heap.
+	Heap,
+
+	/// A value that is a immediate value, and is stored in the instruction itself.
 	Immediate,
 
+	/// A value that is stored in the static section(s).
+	Static(usize),
+
+	// The value is unused.
 	#[default]
-	Unknown,
+	Unused,
 }
 
-mlua_magic_macros::compile!(type_path = Location, variants = true);
+impl Slot {
+	pub fn is_managed(&self) -> bool {
+		return matches!(*self, Slot::Register(..) | Slot::Stack(..));
+	}
+}
 
 // TODO: Documentation.
 #[derive(Clone, Debug)]
-#[mlua_magic_macros::structure]
 pub struct Value {
 	pub r#type: Type,
-	pub location: Location,
+	pub location: Slot,
 }
-
-mlua_magic_macros::compile!(type_path = Value, fields = true);

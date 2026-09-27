@@ -46,6 +46,8 @@ pub enum Token<'source> {
 	Function,
 	#[token(r"const")]
 	Constant,
+	#[token(r"static")]
+	Static,
 	#[token(r"let")]
 	LocalVariable,
 

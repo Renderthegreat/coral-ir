@@ -1,6 +1,6 @@
 use crate::store::{
 	Value,
-	Location,
+	Slot,
 };
 use crate::types::{
 	Type,
@@ -44,7 +44,7 @@ impl Operation for Add {
 		// TODO: Make this configurable!
 		return Some(Value {
 			r#type: Type::Integer(64, true),
-			location: Location::Register(Register::General(0)),
+			location: Slot::Register(Register::General(0)),
 		});
 	}
 }

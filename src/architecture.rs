@@ -1,25 +1,51 @@
-use ::mlua_magic_macros;
+use crate::{
+	abi::ABI,
+	types::Type,
+};
+
+use ::enum_kinds;
+
+use ::std::sync::Arc;
+
+#[derive(Clone, Copy, Debug)]
+pub enum Endianness {
+	Big,
+	Little,
+}
 
 ///
 /// Represents a register that stores data.
 ///
-#[derive(Clone, Debug)]
-#[mlua_magic_macros::enumeration]
+#[derive(enum_kinds::EnumKind, Clone, Copy, Eq, PartialEq, Hash, Debug)]
+#[enum_kind(RegisterKind)]
 pub enum Register {
-	/// The nth general purpose register.
-	General(u8),
-	/// The nth float register.
-	Float(u8),
-
-	// TODO: ...
-	/// ???
-	Vector(u8, VectorRegister),
+	General(usize),
+	Float(usize),
+	// Flag(!), // TODO: ...
+	/// (number, size).
+	Vector(usize, u64),
 }
 
-mlua_magic_macros::compile!(type_path = Register, variants = true,);
+impl Register {
+	pub fn kind(&self) -> RegisterKind {
+		return self.into();
+	}
+}
 
+impl RegisterKind {
+	pub fn register_type(r#type: &Type) -> Option<Self> {
+		return Some(match r#type {
+			Type::Integer(..) | Type::Reference(..) | Type::List(..) => Self::General,
+			Type::Float(..) => Self::Float,
+
+			// TODO: Tuple optimizations, ...
+			_ => return None,
+		});
+	}
+}
+
+/// TODO: ...
 #[derive(Clone, Debug)]
-#[mlua_magic_macros::enumeration]
 pub enum VectorRegister {
 	Bx(), //   8 bits.
 	Hx(), //  16 bits.
@@ -28,24 +54,35 @@ pub enum VectorRegister {
 	Qx(), // 128 bits.
 	Vx(), // 128 bits.
 }
-mlua_magic_macros::compile!(type_path = VectorRegister, variants = true);
-
-#[derive(Clone, Debug)]
-#[mlua_magic_macros::enumeration]
-pub enum Endianness {
-	Big(),
-	Little(),
-}
-
-mlua_magic_macros::compile!(type_path = Endianness, variants = true);
 
 ///
 /// Information about the target architecture.
 /// Includes information such as endianness, and bit count.
 ///
 #[derive(Clone, Debug)]
-#[mlua_magic_macros::structure]
 pub struct Architecture {
 	pub name: String,
+
+	pub abi: Arc<ABI>,
+	pub register_set: RegisterSet,
+
 	pub endianness: Endianness,
+}
+
+#[derive(Clone, Debug)]
+pub struct RegisterSet {
+	pub general_registers: Vec<Register>,
+	pub float_registers: Vec<Register>,
+	pub flag_registers: Vec<Register>, // TODO: ...
+	pub vector_registers: Vec<Register>,
+}
+
+impl RegisterSet {
+	pub fn get(&self, register_kind: &RegisterKind, index: usize) -> Option<Register> {
+		return match *register_kind {
+			RegisterKind::General => self.general_registers.get(index).copied(),
+			RegisterKind::Float => self.float_registers.get(index).copied(),
+			RegisterKind::Vector => self.vector_registers.get(index).copied(),
+		};
+	}
 }

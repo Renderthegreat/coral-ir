@@ -22,6 +22,14 @@ pub struct Constant {
 }
 
 #[derive(Clone, Debug)]
+pub struct Static {
+	pub name: String,
+
+	pub r#type: Type,
+	pub value: Value,
+}
+
+#[derive(Clone, Debug)]
 pub struct LuauBlock {
 	pub source: String,
 }

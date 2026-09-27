@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 console = "0.16.4"
+enum-kinds = "0.5.1"
 
 logos = "0.16.1"
 

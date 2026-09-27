@@ -2,7 +2,7 @@ use crate::{
 	types::Type,
 	store::{
 		Value,
-		Location,
+		Slot,
 	},
 	language::{
 		lexer::Token,
@@ -172,6 +172,19 @@ pub fn parse<'source>(lexer: &mut logos::Lexer<'source, Token<'source>>, scope: 
 			},
 
 			// 'const'.
+			Token::Constant => {
+				let name = match_for_token!(lexer, Identifier, name);
+
+				match_for_token!(lexer, Colon);
+
+				let path = match_for_token!(lexer, Path, path);
+
+				match_for_token!(lexer, Equal);
+
+				todo!();
+			},
+
+			// 'static'.
 			Token::Constant => {
 				let name = match_for_token!(lexer, Identifier, name);
 

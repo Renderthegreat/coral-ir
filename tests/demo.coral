@@ -1,2 +1,3 @@
-# local foo = {};
-# local bar = {};
+# local coral = require('coral');
+
+static HEADER: &[u8] = "This is a sample program...";
